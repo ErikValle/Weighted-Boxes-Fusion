@@ -209,7 +209,7 @@ def weighted_boxes_fusion(
 
     filtered_boxes = prefilter_boxes(boxes_list, scores_list, labels_list, weights, skip_box_thr)
     if len(filtered_boxes) == 0:
-        return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0,))
+        return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0,)), [0]
 
     overall_boxes = []
     nbj = []
