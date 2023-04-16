@@ -52,12 +52,13 @@ weights = [2, 1]
 
 iou_thr = 0.5
 skip_box_thr = 0.0001
+skip_box_thrs = [0.4,0.5]
 sigma = 0.1
 
 boxes, scores, labels = nms(boxes_list, scores_list, labels_list, weights=weights, iou_thr=iou_thr)
 boxes, scores, labels = soft_nms(boxes_list, scores_list, labels_list, weights=weights, iou_thr=iou_thr, sigma=sigma, thresh=skip_box_thr)
 boxes, scores, labels = non_maximum_weighted(boxes_list, scores_list, labels_list, weights=weights, iou_thr=iou_thr, skip_box_thr=skip_box_thr)
-boxes, scores, labels = weighted_boxes_fusion(boxes_list, scores_list, labels_list, weights=weights, iou_thr=iou_thr, skip_box_thr=skip_box_thr)
+boxes, scores, labels, nb = weighted_boxes_fusion(boxes_list, scores_list, labels_list, weights=weights, iou_thr=iou_thr, skip_box_thr=skip_box_thrs)
 ```
 
 #### Single model
@@ -67,7 +68,7 @@ If you need to apply NMS or any other method to single model predictions you can
 ```python
 from ensemble_boxes import *
 # Merge boxes for single model predictions
-boxes, scores, labels = weighted_boxes_fusion([boxes_list], [scores_list], [labels_list], weights=None, method=method, iou_thr=iou_thr, thresh=thresh)
+boxes, scores, labels, nb = weighted_boxes_fusion([boxes_list], [scores_list], [labels_list], weights=None, method=method, iou_thr=iou_thr, thresh=skip_box_thr)
 ```
 
 More examples can be found in [example.py](examples/example.py)
