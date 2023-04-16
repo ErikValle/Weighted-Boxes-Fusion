@@ -6,23 +6,36 @@ import warnings
 import numpy as np
 
 
-def prefilter_boxes(boxes, scores, labels, weights, thr):
+def prefilter_boxes(boxes, scores, labels, weights, thrs):
     # Create dict with boxes stored by its label
     new_boxes = dict()
-
+    
+    if type(thrs)== float:
+        print('Setting the values of the confidence gate equal for all categories')
+        thrs=list(thrs*np.ones((max(max(labels)))+1))
+    elif len(thrs) == 1:
+        print('Setting the values of the confidence gate equal for all categories')
+        thrs=list(thrs[0]*np.ones((max(max(labels)))+1))
+    elif (len(thrs))!=(max(max(labels))+1):
+        print('Error. Number of categories not equal to the number of elements in the confidence gate: {} != {}'.format((max(max(labels))+1),len(thrs)))
+        exit()
+        #return -1
+    
     for t in range(len(boxes)):
-
+        
         if len(boxes[t]) != len(scores[t]):
             print('Error. Length of boxes arrays not equal to length of scores array: {} != {}'.format(len(boxes[t]), len(scores[t])))
             exit()
+            #return -1
 
         if len(boxes[t]) != len(labels[t]):
             print('Error. Length of boxes arrays not equal to length of labels array: {} != {}'.format(len(boxes[t]), len(labels[t])))
             exit()
+            #return -1
 
-        for j in range(len(boxes[t])):
+        for j in range(len(boxes[t])):    
             score = scores[t][j]
-            if score < thr:
+            if score < thrs[labels[t][j]]:
                 continue
             label = int(labels[t][j])
             box_part = boxes[t][j]
@@ -89,9 +102,10 @@ def get_weighted_box(boxes, conf_type='avg'):
     """
 
     box = np.zeros(8, dtype=np.float32)
-    conf = 0
+    conf = 0 
     conf_list = []
     w = 0
+    
     for b in boxes:
         box[4:] += (b[1] * b[4:])
         conf += b[1]
@@ -103,7 +117,7 @@ def get_weighted_box(boxes, conf_type='avg'):
     elif conf_type == 'max':
         box[1] = np.array(conf_list).max()
     box[2] = w
-    box[3] = -1 # model index field is retained for consistency but is not used.
+    box[3] = -1
     box[4:] /= conf
     return box
 
@@ -168,7 +182,7 @@ def weighted_boxes_fusion(
     :param labels_list: list of labels for each model
     :param weights: list of weights for each model. Default: None, which means weight == 1 for each model
     :param iou_thr: IoU value for boxes to be a match
-    :param skip_box_thr: exclude boxes with score lower than this variable
+    :param skip_box_thr: list or float. Exclude boxes with a score lower than this variable either per class or assigning a single value to all of them, respectively.
     :param conf_type: how to calculate confidence in weighted boxes.
         'avg': average value,
         'max': maximum value,
@@ -179,6 +193,7 @@ def weighted_boxes_fusion(
     :return: boxes: boxes coordinates (Order of boxes: x1, y1, x2, y2).
     :return: scores: confidence scores
     :return: labels: boxes labels
+    :return: nb: number of models voting for box b
     '''
 
     if weights is None:
@@ -197,21 +212,24 @@ def weighted_boxes_fusion(
         return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0,))
 
     overall_boxes = []
+    nbj = []
     for label in filtered_boxes:
         boxes = filtered_boxes[label]
         new_boxes = []
         weighted_boxes = np.empty((0, 8))
-
+        temp = []
         # Clusterize boxes
         for j in range(0, len(boxes)):
             index, best_iou = find_matching_box_fast(weighted_boxes, boxes[j], iou_thr)
-
             if index != -1:
                 new_boxes[index].append(boxes[j])
                 weighted_boxes[index] = get_weighted_box(new_boxes[index], conf_type)
+                temp[index].append(boxes[j][3])
             else:
                 new_boxes.append([boxes[j].copy()])
+                temp.append([boxes[j][3]])
                 weighted_boxes = np.vstack((weighted_boxes, boxes[j].copy()))
+        nbj.append(temp)
 
         # Rescale confidence based on number of models and boxes
         for i in range(len(new_boxes)):
@@ -240,9 +258,14 @@ def weighted_boxes_fusion(
             else:
                 weighted_boxes[i, 1] = weighted_boxes[i, 1] * len(clustered_boxes) / weights.sum()
         overall_boxes.append(weighted_boxes)
+    #Cleaning nbj
+    nb=[]
+    for ni in range(len(nbj)):
+        for nj in range(len(nbj[ni])):
+            nb.append(len(np.unique(np.array(nbj[ni][nj]))))
     overall_boxes = np.concatenate(overall_boxes, axis=0)
     overall_boxes = overall_boxes[overall_boxes[:, 1].argsort()[::-1]]
     boxes = overall_boxes[:, 4:]
     scores = overall_boxes[:, 1]
     labels = overall_boxes[:, 0]
-    return boxes, scores, labels
+    return boxes, scores, labels, nb

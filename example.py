@@ -194,7 +194,7 @@ def example_nms_2_models(method, iou_thr=0.5, sigma=0.5, thresh=0.001, draw_imag
     if draw_image:
         show_boxes(boxes_list, scores_list, labels_list)
 
-    boxes, scores, labels, _ = nms_method(boxes_list, scores_list, labels_list, method=method, weights=weights, iou_thr=iou_thr, sigma=sigma, thresh=thresh)
+    boxes, scores, labels = nms_method(boxes_list, scores_list, labels_list, method=method, weights=weights, iou_thr=iou_thr, sigma=sigma, thresh=thresh)
 
     if draw_image:
         show_boxes([boxes], [scores], [labels.astype(np.int32)])
